@@ -133,3 +133,35 @@ RTM32> r
 
 ## Conclusiones:
 Fallo detectado. Aunque el Program Counter (PC) avanzó de forma secuencial simulando la caída por falso de la condición, la instrucción BNE alteró de forma destructiva el contenido del registro de destino R[1], cargando en él el valor del desplazamiento inmediato (0x4). Esto delata un error crítico de diseño en los caminos de datos o en la decodificación de opcodes por parte de la CPU, confundiendo la lógica del salto condicional BNE con una operación de escritura o carga inmediata.
+
+# Caso 6
+## Descripción:
+Testeo de la instrucción ANDI (And Immediate) perteneciente al Formato L, para comprobar la operación lógica bit a bit contra una constante inmediata extendida con ceros y verificar el comportamiento reportado en la documentación sobre posibles fallos de diseño.
+
+## Instructions:
+Instrucción utilizada en formato L:
+* ANDI $1, $0, 0xFFFF -> Código de máquina: 0x2001FFFF
+* Lógica esperada: La CPU debería realizar la operación lógica AND bit a bit entre el contenido de R[0] (0x00000000) y la constante inmediata extendida con ceros (0x0000FFFF), almacenando el resultado (0x00000000) en el registro de destino R[1].
+
+## Precondiciones:
+* Se realiza un reset completo del sistema.
+* Se escribe el código hexadecimal de la instrucción en la dirección de memoria 0x00000000 mediante el comando s.
+* Se fuerza manualmente el registro PC a la dirección de memoria de usuario 0x00000000 usando set PC.
+
+## Code
+RTM32> reset
+System reset sequence complete. Target PC: 0xF0000000 (Mode: KERNEL)
+RTM32> s [0x00] 0x2001FFFF
+RTM32> set PC 0x00000000
+Program Counter (PC) set to 0x00000000
+RTM32> n 1
+Stepped instructions. Target PC: 0x00000004
+RTM32> r
+
+## Postcondiciones:
+* El Program Counter (PC) avanza de manera exitosa a la dirección secuencial inmediata 0x00000004.
+* Al inspeccionar el banco de registros generales mediante el comando r, se comprueba que todos los registros, incluido R[1], permanecen inalterados en 0x00000000.
+* El registro especial CAUSE se mantiene en 0x00000000, indicando la ausencia de excepciones por código de operación inválido.
+
+## Conclusiones:
+Anduvo de forma nominal teórica, pero bajo sospecha por documentación. Aunque el resultado final en el registro R[1] es matemáticamente correcto (0 AND 0xFFFF = 0), debido a que la CPU no actualizó ninguna bandera y considerando las advertencias explícitas del manual de usuario sobre un bug crítico latente en la unidad de control para la instrucción ANDI[cite: 125], este test se considera inconcluso para validar el camino de datos lógicos. No es posible determinar únicamente con valores en cero si el bit 'h' de control de parte superior/inferior del Formato L [cite: 100] está operando de forma defectuosa o si el bus de la ALU hacia el banco de registros se encuentra abierto para este opcode.
