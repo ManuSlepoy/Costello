@@ -229,3 +229,36 @@ RTM32> r
 
 ## Conclusiones:
 Fallo crítico sistemático detectado. La instrucción XORI confirma un error estructural y repetitivo en la decodificación de todo el Formato L de la CPU. Al igual que con ORI, el hardware invierte el bit de control 'h' (ubicando los bits en la parte alta MSB de forma errónea) e ignora por completo el índice del registro destino apuntado por el campo 'rt', enviando la escritura de forma destructiva directamente hacia el registro físico R[0]. Esto delata que las líneas de selección de escritura del Banco de Registros (GPR) quedan forzadas en 0 cuando se activan los opcodes de tipo L.
+
+# Caso 9
+## Descripción:
+Testeo de la instrucción LUI (Load Upper Immediate) perteneciente al Formato L, para verificar la carga de una constante de 16 bits en la parte alta de los registros generales y consolidar el diagnóstico sobre el fallo sistemático de enrutamiento de destino.
+
+## Instructions:
+Instrucción utilizada en formato L:
+* LUI $1, 0xAAAA -> Código de máquina: 0x3801AAAA
+* Lógica esperada: La CPU debería cargar la constante inmediata 0xAAAA en los 16 bits más significativos (MSB) del registro R[1], dejando sus bits inferiores en cero (resultado esperado en R[1] = 0xAAAA0000). El registro R[0] debe mantenerse inalterable en cero.
+
+## Precondiciones:
+* Se realiza un reset completo de la CPU STX4.
+* Se escribe el código de máquina en la dirección de memoria 0x00000000 mediante el comando s.
+* Se inicializa manualmente el registro PC en 0x00000000 mediante set PC.
+
+## Code
+RTM32> reset
+System reset sequence complete. Target PC: 0xF0000000 (Mode: KERNEL)
+RTM32> s [0x00] 0x3801AAAA
+RTM32> set PC 0x00000000
+Program Counter (PC) set to 0x00000000
+RTM32> n 1
+Stepped instructions. Target PC: 0x00000004
+RTM32> r
+
+## Postcondiciones:
+* El Program Counter (PC) avanza de manera secuencial a la dirección 0x00000004.
+* Al inspeccionar con r, el registro de destino real R[1] permanece inmóvil en 0x00000000.
+* El registro hardwired R[0] resulta vulnerado nuevamente, almacenando el valor 0xAAAA0000.
+* El registro CAUSE no reporta excepciones (0x00000000).
+
+## Conclusiones:
+Fallo crítico sistemático confirmado. La ejecución de LUI se acopla perfectamente al patrón defectuoso descubierto en las pruebas lógicas del Formato L (ORI, XORI). Si bien la extensión hacia la parte alta (MSB) coincide con la especificación de LUI, la CPU es completamente incapaz de direccionar el registro destino asignado por el campo 'rt' (en este caso R[1]), enviando la señal de escritura de la ALU directo al registro inmutable R[0]. Queda demostrado formalmente que el decodificador de hardware para todo el bloque de opcodes del Formato L posee una línea de control cortocircuitada que fuerza el índice del registro de destino a cero.
