@@ -13,7 +13,6 @@ Instrucciones utilizadas (Formato I):
 * Se reubica manualmente el registro `PC` a la dirección `0x00000000` mediante el comando `set PC`.
 
 ## Code
-```assembly
 RTM32> reset
 System reset sequence complete. Target PC: 0xF0000000 (Mode: KERNEL)
 RTM32> s [0x00] 0x2008000F
@@ -22,4 +21,27 @@ RTM32> set PC 0x00000000
 Program Counter (PC) set to 0x00000000
 RTM32> n 2
 Stepped instructions. Target PC: 0x00000008
+RTM32> r
+
+# Caso 2
+## Descripción:
+Testeo de la instrucción J (Jump - Salto Incondicional) para verificar la correcta decodificación del campo de dirección de salto y la modificación directa sobre el Program Counter (PC).
+
+## Instructions:
+Instrucción utilizada en formato J:
+* J 0x00000010 -> Código de máquina: 0x10000004 (Dirección dividida por 4 para remover alineación: 4 = 0x0000004)
+
+## Precondiciones:
+* Se realiza un `reset` del sistema (PC inicializa en `0xF0000000`).
+* Se almacena el código hexadecimal de la instrucción en la dirección de memoria `0x00000000` con el comando `s`.
+* Se reubica manualmente el `PC` a `0x00000000` usando `set PC`.
+
+## Code
+RTM32> reset
+System reset sequence complete. Target PC: 0xF0000000 (Mode: KERNEL)
+RTM32> s [0x00] 0x10000004
+RTM32> set PC 0x00000000
+Program Counter (PC) set to 0x00000000
+RTM32> n 1
+Stepped instructions. Target PC: 0x00000010
 RTM32> r
