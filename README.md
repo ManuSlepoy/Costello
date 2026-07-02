@@ -45,3 +45,26 @@ Program Counter (PC) set to 0x00000000
 RTM32> n 1
 Stepped instructions. Target PC: 0x00000010
 RTM32> r
+
+# Caso 3
+## Descripción:
+Testeo de la instrucción JAL (Jump and Link) para verificar la ejecución simultánea de la bifurcación incondicional del flujo del programa y el almacenamiento automático de la dirección de retorno ($PC + 4$) en el registro de enlace `R[31]` ($ra$).
+
+## Instructions:
+Instrucción utilizada en formato J:
+* JAL 0x00000020 -> Código de máquina: 0x18000008 (Dirección dividida por 4 para remover alineación: 8 = 0x0000008)
+
+## Precondiciones:
+* Se realiza un `reset` del sistema (PC inicializa en `0xF0000000`).
+* Se inyecta la instrucción en la dirección de memoria de usuario `0x00000000` mediante el comando `s`.
+* Se reubica manualmente el registro `PC` a `0x00000000` mediante el comando `set PC`.
+
+## Code
+RTM32> reset
+System reset sequence complete. Target PC: 0xF0000000 (Mode: KERNEL)
+RTM32> s [0x00] 0x18000008
+RTM32> set PC 0x00000000
+Program Counter (PC) set to 0x00000000
+RTM32> n 1
+Stepped instructions. Target PC: 0x00000020
+RTM32> r
