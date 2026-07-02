@@ -68,3 +68,36 @@ Program Counter (PC) set to 0x00000000
 RTM32> n 1
 Stepped instructions. Target PC: 0x00000020
 RTM32> r
+
+# Caso 4
+## Descripción:
+Testeo de la instrucción BEQ (Branch if Equal) para verificar la correcta evaluación de la condición de igualdad entre dos registros y la bifurcación condicional relativa al PC.
+
+## Instructions:
+Instrucción utilizada en formato I (Branch):
+* BEQ $0, $1, 4  -> Código de máquina: 0x20020004
+* Lógica esperada: Dado que R[0] y R[1] contienen inicialmente 0x00000000, la condición de igualdad se cumple de forma efectiva y la CPU debería saltar a PC + 4 + (4 * 4) = 0x00000014.
+
+## Precondiciones:
+* Se realiza un reset de la máquina.
+* Se inyecta la instrucción BEQ en la dirección de memoria 0x00000000 mediante el comando s.
+* Se reubica manualmente el registro PC a 0x00000000 mediante el comando set PC.
+
+## Code
+RTM32> reset
+System reset sequence complete. Target PC: 0xF0000000 (Mode: KERNEL)
+RTM32> s [0x00] 0x20020004
+RTM32> s [0x04] 0x2009FFFB
+RTM32> set PC 0x00000000
+Program Counter (PC) set to 0x00000000
+RTM32> n 1
+Stepped instructions. Target PC: 0x00000004
+RTM32> r
+
+## Postcondiciones:
+* La consola reporta un avance a Target PC: 0x00000004.
+* Al inspeccionar con el comando r, el registro PC se encuentra efectivamente en 0x00000004 en lugar del destino calculado (0x14).
+* El indicador de excepción CAUSE se mantiene en 0x00000000, confirmando que la instrucción fue decodificada pero no ejecutó la acción esperada.
+
+## Conclusiones:
+Fallo detectado. La instrucción BEQ no funciona de la forma esperada bajo el Modo Kernel (o presenta un defecto de diseño en la unidad de control del hardware). A pesar de cumplirse estrictamente la condición de igualdad aritmética (0 = 0), el procesador omitió la señal de control de toma de salto condicional (Branch Taken) y ejecutó un avance de ciclo puramente secuencial (PC + 4), ignorando el desplazamiento inmediato calculado.
