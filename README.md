@@ -292,3 +292,33 @@ RTM32> r
 
 ## Conclusiones:
 Fallo crítico de hardware detectado. La instrucción LW realiza un cálculo erróneo de la dirección efectiva (EA). En lugar de procesar la suma aritmética balanceada de R[0] + 0, la unidad de control o la ALU inyectaron un valor espurio (equivalente a -1 o una extensión de signo rota) que forzó al bus de direcciones a apuntar a 0xFFFF0000. Este direccionamiento fuera de los límites válidos provocó una excepción inmediata reflejada en los registros de control de excepciones (CAUSE y BADVADR), demostrando que el mecanismo de carga de memoria se encuentra severamente dañado.
+
+# Caso 11
+## Descripción:
+Testeo de la instrucción SW (Store Word) perteneciente al Formato I, para evaluar el cálculo de la dirección efectiva de memoria (EA) y verificar la correcta ejecución del ciclo de escritura de datos en la memoria del sistema.
+
+## Instructions:
+Instrucción utilizada en formato I (Memory):
+* SW $1, 0($0) -> Código de máquina: 0x48010000
+* Lógica esperada: La CPU debería calcular la dirección efectiva sumando el contenido de R[0] (0x00000000) y el desplazamiento inmediato 0x0000 (EA = 0x00000000). Posteriormente, debería transferir (escribir) la palabra contenida en el registro R[1] hacia dicha dirección física de la memoria del sistema.
+
+## Precondiciones:
+* Se escribe el código hexadecimal de la instrucción SW en la dirección de memoria 0x00000000 mediante el comando s.
+* Se fuerza el registro PC a la dirección inicial de pruebas 0x00000000 mediante el comando set PC.
+
+## Code
+RTM32> s [0x00] 0x48010000
+RTM32> set PC 0x00000000
+Program Counter (PC) set to 0x00000000
+RTM32> n 1
+Stepped instructions. Target PC: 0x00000000
+RTM32> r
+
+## Postcondiciones:
+* El Program Counter (PC) se congela por completo, reportando un Target PC estancado en 0x00000000.
+* El registro de control CAUSE se altera a 0x00000001, acusando el disparo inmediato de una excepción de hardware.
+* El registro BADVADR captura la dirección inválida de destino en 0xFFFF0000.
+* En 'Last Memory Operation', se registra un intento de operación erróneo: Type: READ en la dirección 0xFFFF0000.
+
+## Conclusiones:
+Fallo crítico de hardware detectado. La instrucción SW presenta dos anomalías de diseño severas. En primer lugar, arrastra el mismo defecto aritmético que LW al calcular la dirección efectiva (EA), corrompiendo el bus de direcciones para apuntar de forma errónea a la zona restringida 0xFFFF0000, lo que bloquea el PC y dispara la excepción. En segundo lugar, la unidad de control de la CPU falló en conmutar el ciclo de bus correspondiente: en vez de ejecutar un ciclo de escritura (WRITE), el procesador intentó realizar una lectura (READ) sobre la memoria, invirtiendo por completo la semántica operacional de la instrucción Store Word.
