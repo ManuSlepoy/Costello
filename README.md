@@ -165,3 +165,35 @@ RTM32> r
 
 ## Conclusiones:
 Anduvo de forma nominal teórica, pero bajo sospecha por documentación. Aunque el resultado final en el registro R[1] es matemáticamente correcto (0 AND 0xFFFF = 0), debido a que la CPU no actualizó ninguna bandera y considerando las advertencias explícitas del manual de usuario sobre un bug crítico latente en la unidad de control para la instrucción ANDI[cite: 125], este test se considera inconcluso para validar el camino de datos lógicos. No es posible determinar únicamente con valores en cero si el bit 'h' de control de parte superior/inferior del Formato L [cite: 100] está operando de forma defectuosa o si el bus de la ALU hacia el banco de registros se encuentra abierto para este opcode.
+
+# Caso 7
+## Descripción:
+Testeo de la instrucción ORI (Or Immediate) perteneciente al Formato L, para verificar la operación lógica bit a bit contra una constante inmediata en el banco de registros generales.
+
+## Instructions:
+Instrucción utilizada en formato L:
+* ORI $1, $0, 0xFFFF -> Código de máquina: 0x2801FFFF
+* Lógica esperada: La CPU debería realizar un OR lógico entre R[0] (0x00000000) y la constante inmediata (0x0000FFFF), almacenando de manera obligatoria el resultado final (0x0000FFFF) en el registro destino R[1]. El registro R[0] bajo ninguna circunstancia debería verse alterado.
+
+## Precondiciones:
+* Se realiza un reset completo del procesador STX4.
+* Se escribe la instrucción en la dirección de memoria 0x00000000 mediante el comando s.
+* Se inicializa manualmente el registro PC en 0x00000000 usando el comando set PC.
+
+## Code
+RTM32> reset
+System reset sequence complete. Target PC: 0xF0000000 (Mode: KERNEL)
+RTM32> s [0x00] 0x2801FFFF
+RTM32> set PC 0x00000000
+Program Counter (PC) set to 0x00000000
+RTM32> n 1
+Stepped instructions. Target PC: 0x00000004
+RTM32> r
+
+## Postcondiciones:
+* El Program Counter (PC) avanza secuencialmente de forma correcta a la dirección 0x00000004.
+* Al inspeccionar el banco de registros con r, se detecta una anomalía crítica: el registro R[1] se mantiene en 0x00000000, mientras que el registro R[0] fue modificado de forma destructiva adquiriendo el valor 0xFFFF0000.
+* El registro especial CAUSE permanece en 0x00000000.
+
+## Conclusiones:
+Fallo crítico detectado. La instrucción ORI presenta un comportamiento totalmente errático en el hardware que viola las especificaciones de la arquitectura STX4. En primer lugar, logró corromper y modificar el registro R[0] ($zero), el cual debería estar estrictamente cableado a tierra (hardwired a cero). En segundo lugar, el valor depositado (0xFFFF0000) demuestra que el bit de control de desplazamiento superior 'h' del Formato L operó de forma invertida o errónea, cargando la constante en la parte más significativa (MSB) en lugar de la inferior, y direccionando el registro destino hacia el índice equivocado.
