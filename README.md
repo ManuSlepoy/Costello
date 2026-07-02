@@ -101,3 +101,35 @@ RTM32> r
 
 ## Conclusiones:
 Fallo detectado. La instrucción BEQ no funciona de la forma esperada bajo el Modo Kernel (o presenta un defecto de diseño en la unidad de control del hardware). A pesar de cumplirse estrictamente la condición de igualdad aritmética (0 = 0), el procesador omitió la señal de control de toma de salto condicional (Branch Taken) y ejecutó un avance de ciclo puramente secuencial (PC + 4), ignorando el desplazamiento inmediato calculado.
+
+# Caso 5
+## Descripción:
+Testeo de la instrucción BNE (Branch if Not Equal) para verificar la correcta evaluación de la condición de desigualdad entre dos registros y la bifurcación condicional relativa al PC.
+
+## Instructions:
+Instrucción utilizada en formato I (Branch):
+* BNE $0, $1, 4  -> Código de máquina: 0x28020004
+* Lógica esperada: Dado que R[0] y R[1] contienen inicialmente 0x00000000, la condición de desigualdad es falsa (0 != 0 es falso) por lo que la CPU NO debe tomar el salto y debe avanzar secuencialmente a PC = 0x00000004 sin alterar ningún registro.
+
+## Precondiciones:
+* Se realiza un reset de la máquina.
+* Se inyecta la instrucción BNE en la dirección de memoria 0x00000000 mediante el comando s.
+* Se reubica manualmente el registro PC a 0x00000000 mediante el comando set PC.
+
+## Code
+RTM32> reset
+System reset sequence complete. Target PC: 0xF0000000 (Mode: KERNEL)
+RTM32> s [0x00] 0x28020004
+RTM32> set PC 0x00000000
+Program Counter (PC) set to 0x00000000
+RTM32> n 1
+Stepped instructions. Target PC: 0x00000004
+RTM32> r
+
+## Postcondiciones:
+* La consola reporta un avance secuencial a Target PC: 0x00000004.
+* Al inspeccionar el banco de registros con r, se observa un comportamiento anómalo: el registro R[1] fue modificado de forma inesperada adquiriendo el valor 0x00000004.
+* El indicador de excepción CAUSE permanece en 0x00000000.
+
+## Conclusiones:
+Fallo detectado. Aunque el Program Counter (PC) avanzó de forma secuencial simulando la caída por falso de la condición, la instrucción BNE alteró de forma destructiva el contenido del registro de destino R[1], cargando en él el valor del desplazamiento inmediato (0x4). Esto delata un error crítico de diseño en los caminos de datos o en la decodificación de opcodes por parte de la CPU, confundiendo la lógica del salto condicional BNE con una operación de escritura o carga inmediata.
