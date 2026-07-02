@@ -197,3 +197,35 @@ RTM32> r
 
 ## Conclusiones:
 Fallo crítico detectado. La instrucción ORI presenta un comportamiento totalmente errático en el hardware que viola las especificaciones de la arquitectura STX4. En primer lugar, logró corromper y modificar el registro R[0] ($zero), el cual debería estar estrictamente cableado a tierra (hardwired a cero). En segundo lugar, el valor depositado (0xFFFF0000) demuestra que el bit de control de desplazamiento superior 'h' del Formato L operó de forma invertida o errónea, cargando la constante en la parte más significativa (MSB) en lugar de la inferior, y direccionando el registro destino hacia el índice equivocado.
+
+# Caso 8
+## Descripción:
+Testeo de la instrucción XORI (Exclusive OR Immediate) perteneciente al Formato L, para verificar la operación lógica bit a bit contra una constante inmediata y corroborar la persistencia del fallo sistemático de direccionamiento de registros observado en este formato.
+
+## Instructions:
+Instrucción utilizada en formato L:
+* XORI $1, $0, 0xFFFF -> Código de máquina: 0x3001FFFF
+* Lógica esperada: La CPU debería realizar un XOR lógico bit a bit entre R[0] (0x00000000) y la constante inmediata extendida con ceros (0x0000FFFF), almacenando el resultado final (0x0000FFFF) en el registro destino R[1]. El registro R[0] debe permanecer inmutable en cero.
+
+## Precondiciones:
+* Se realiza un reset completo de la arquitectura STX4.
+* Se escribe la instrucción en la dirección de memoria 0x00000000 mediante el comando s.
+* Se inicializa de forma manual el registro PC en 0x00000000 mediante el comando set PC.
+
+## Code
+RTM32> reset
+System reset sequence complete. Target PC: 0xF0000000 (Mode: KERNEL)
+RTM32> s [0x00] 0x3001FFFF
+RTM32> set PC 0x00000000
+Program Counter (PC) set to 0x00000000
+RTM32> n 1
+Stepped instructions. Target PC: 0x00000004
+RTM32> r
+
+## Postcondiciones:
+* El Program Counter (PC) avanza secuencialmente a la dirección 0x00000004.
+* Al inspeccionar el banco de registros con el comando r, se comprueba la repetición exacta de la falla crítica anterior: el registro R[1] se mantiene intacto en 0x00000000, mientras que el registro inmutable R[0] ($zero) es corrompido adquiriendo el valor 0xFFFF0000.
+* El registro CAUSE permanece en 0x00000000.
+
+## Conclusiones:
+Fallo crítico sistemático detectado. La instrucción XORI confirma un error estructural y repetitivo en la decodificación de todo el Formato L de la CPU. Al igual que con ORI, el hardware invierte el bit de control 'h' (ubicando los bits en la parte alta MSB de forma errónea) e ignora por completo el índice del registro destino apuntado por el campo 'rt', enviando la escritura de forma destructiva directamente hacia el registro físico R[0]. Esto delata que las líneas de selección de escritura del Banco de Registros (GPR) quedan forzadas en 0 cuando se activan los opcodes de tipo L.
