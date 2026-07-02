@@ -262,3 +262,33 @@ RTM32> r
 
 ## Conclusiones:
 Fallo crítico sistemático confirmado. La ejecución de LUI se acopla perfectamente al patrón defectuoso descubierto en las pruebas lógicas del Formato L (ORI, XORI). Si bien la extensión hacia la parte alta (MSB) coincide con la especificación de LUI, la CPU es completamente incapaz de direccionar el registro destino asignado por el campo 'rt' (en este caso R[1]), enviando la señal de escritura de la ALU directo al registro inmutable R[0]. Queda demostrado formalmente que el decodificador de hardware para todo el bloque de opcodes del Formato L posee una línea de control cortocircuitada que fuerza el índice del registro de destino a cero.
+
+# Caso 10
+## Descripción:
+Testeo de la instrucción LW (Load Word) perteneciente al Formato I, para verificar el cálculo de la dirección efectiva de memoria (EA) y la transferencia de datos hacia el banco de registros generales.
+
+## Instructions:
+Instrucción utilizada en formato I (Memory):
+* LW $1, 0($0) -> Código de máquina: 0x40010000
+* Lógica esperada: La CPU debería calcular la dirección efectiva sumando el contenido de R[0] (0x00000000) y el desplazamiento inmediato 0x0000 (EA = 0x00000000). Posteriormente, debería leer la palabra en esa dirección y cargarla en R[1].
+
+## Precondiciones:
+* Se escribe la instrucción LW en la dirección de memoria 0x00000000 mediante el comando s.
+* Se reubica el registro PC a la dirección 0x00000000 mediante set PC.
+
+## Code
+RTM32> s [0x00] 0x40010000
+RTM32> set PC 0x00000000
+Program Counter (PC) set to 0x00000000
+RTM32> n 1
+Stepped instructions. Target PC: 0x00000004
+RTM32> r
+
+## Postcondiciones:
+* El Program Counter (PC) avanza a 0x00000004.
+* El registro especial CAUSE cambia a 0x00000001, indicando el disparo de una excepción activa en el sistema.
+* El registro BADVADR captura la dirección ofensiva 0xFFFF0000.
+* En 'Last Memory Operation', se reporta un intento de lectura (READ) fallido en la dirección de memoria 0xFFFF0000.
+
+## Conclusiones:
+Fallo crítico de hardware detectado. La instrucción LW realiza un cálculo erróneo de la dirección efectiva (EA). En lugar de procesar la suma aritmética balanceada de R[0] + 0, la unidad de control o la ALU inyectaron un valor espurio (equivalente a -1 o una extensión de signo rota) que forzó al bus de direcciones a apuntar a 0xFFFF0000. Este direccionamiento fuera de los límites válidos provocó una excepción inmediata reflejada en los registros de control de excepciones (CAUSE y BADVADR), demostrando que el mecanismo de carga de memoria se encuentra severamente dañado.
